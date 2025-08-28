@@ -1,5 +1,5 @@
 {
-  "homepage": "https://darkvj25.github.io/pos-react/",
+  "homepage": ".",
   "name": "vite_react_shadcn_ts",
   "private": true,
   "version": "0.0.0",
@@ -15,6 +15,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.2",
     "@capacitor/cli": "^7.4.2",
     "@capacitor/core": "^7.4.2",
     "@hookform/resolvers": "^3.10.0",

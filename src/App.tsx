@@ -18,74 +18,85 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+import { PosDataProvider } from '@/hooks/usePosData';
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter basename="/pos-react/">
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={
-            <AuthGuard>
-              <PosLayout>
-                <Dashboard />
-              </PosLayout>
-            </AuthGuard>
-          } />
-          <Route path="/pos" element={
-            <AuthGuard>
-              <PosLayout>
-                <PosTerminal />
-              </PosLayout>
-            </AuthGuard>
-          } />
-          <Route path="/products" element={
-            <AuthGuard requiredRole="admin">
-              <PosLayout>
-                <ProductManagement />
-              </PosLayout>
-            </AuthGuard>
-          } />
-          <Route path="/categories" element={
-            <AuthGuard requiredRole="admin">
-              <PosLayout>
-                <CategoryManagement />
-              </PosLayout>
-            </AuthGuard>
-          } />
-          <Route path="/inventory" element={
-            <AuthGuard>
-              <PosLayout>
-                <InventoryManagement />
-              </PosLayout>
-            </AuthGuard>
-          } />
-          <Route path="/sales" element={
-            <AuthGuard>
-              <PosLayout>
-                <SalesHistory />
-              </PosLayout>
-            </AuthGuard>
-          } />
-          <Route path="/reports" element={
-            <AuthGuard requiredRole="admin">
-              <PosLayout>
-                <Reports />
-              </PosLayout>
-            </AuthGuard>
-          } />
-          <Route path="/settings" element={
-            <AuthGuard requiredRole="admin">
-              <PosLayout>
-                <Settings />
-              </PosLayout>
-            </AuthGuard>
-          } />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <PosDataProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/dashboard" element={
+              <AuthGuard>
+                <PosLayout>
+                  <Dashboard />
+                </PosLayout>
+              </AuthGuard>
+            } />
+            <Route path="/pos" element={
+              <AuthGuard>
+                <PosLayout>
+                  <PosTerminal />
+                </PosLayout>
+              </AuthGuard>
+            } />
+            <Route path="/sales-terminal" element={
+              <AuthGuard>
+                <PosLayout>
+                  <PosTerminal />
+                </PosLayout>
+              </AuthGuard>
+            } />
+            <Route path="/products" element={
+              <AuthGuard requiredRole="admin">
+                <PosLayout>
+                  <ProductManagement />
+                </PosLayout>
+              </AuthGuard>
+            } />
+            <Route path="/categories" element={
+              <AuthGuard requiredRole="admin">
+                <PosLayout>
+                  <CategoryManagement />
+                </PosLayout>
+              </AuthGuard>
+            } />
+            <Route path="/inventory" element={
+              <AuthGuard>
+                <PosLayout>
+                  <InventoryManagement />
+                </PosLayout>
+              </AuthGuard>
+            } />
+            <Route path="/sales" element={
+              <AuthGuard>
+                <PosLayout>
+                  <SalesHistory />
+                </PosLayout>
+              </AuthGuard>
+            } />
+            <Route path="/reports" element={
+              <AuthGuard requiredRole="admin">
+                <PosLayout>
+                  <Reports />
+                </PosLayout>
+              </AuthGuard>
+            } />
+            <Route path="/settings" element={
+              <AuthGuard requiredRole="admin">
+                <PosLayout>
+                  <Settings />
+                </PosLayout>
+              </AuthGuard>
+            } />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </PosDataProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

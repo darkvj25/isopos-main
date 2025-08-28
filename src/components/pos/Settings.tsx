@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings as SettingsIcon, Store, Save, Users, UserPlus, UserX } from 'lucide-react';
+import { Settings as SettingsIcon, Store, Save, Users, UserPlus, UserX, Eye, Receipt, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { User } from '@/types/pos';
 
@@ -17,6 +17,12 @@ export const Settings = () => {
   const { currentUser } = usePosAuth();
   const [formData, setFormData] = useState(settings);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewContent, setPreviewContent] = useState<{default: string; minimal: string; wide: string}>({
+    default: '',
+    minimal: '',
+    wide: ''
+  });
   const [newUserData, setNewUserData] = useState({
     username: '',
     password: '',
@@ -111,10 +117,34 @@ export const Settings = () => {
               />
             </div>
 
-            <Button type="submit" className="pos-button-primary">
-              <Save className="w-4 h-4 mr-2" />
-              Save Settings
-            </Button>
+            <div className="flex gap-2">
+              <Button type="submit" className="pos-button-primary">
+                <Save className="w-4 h-4 mr-2" />
+                Save Settings
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={() => {
+                  // Generate preview content based on current form data
+                  const defaultPreview = `${formData.businessName}\n${formData.address}\nTIN: ${formData.tin}\nBIR Permit: ${formData.birPermitNumber}\nContact: ${formData.contactNumber}\n\nReceipt #: R-XXXXXX\nDate: ${new Date().toLocaleString()}\nCashier: Store Cashier\n\nITEMS\n=========================\nSample Product - Medium (MED) 2 x P150.00\nSample Product - Large (LAR) 1 x P200.00\n\nSubtotal: P500.00\nVAT (12%): P60.00\nTOTAL: P560.00\n\nPayment: CASH\nAmount Received: P600.00\nChange: P40.00\n\n${formData.receiptFooter || 'Thank you for your business!'}`;
+                  
+                  const minimalPreview = `${formData.businessName}\n${formData.contactNumber}\n${formData.address}`;
+                  
+                  const widePreview = `================================\n${formData.businessName}\n================================\nContact: ${formData.contactNumber}\nAddress: ${formData.address}\nTIN: ${formData.tin}\nBIR Permit: ${formData.birPermitNumber}\n--------------------------------\n${formData.receiptFooter || 'Thank you for your business!'}\n================================`;
+                  
+                  setPreviewContent({
+                    default: defaultPreview,
+                    minimal: minimalPreview,
+                    wide: widePreview
+                  });
+                  setShowPreviewModal(true);
+                }}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Preview Receipt
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -263,6 +293,45 @@ export const Settings = () => {
           </CardContent>
         </Card>
       )}
+      
+      {/* Receipt Preview Modal */}
+      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Receipt Preview</span>
+              <DialogClose asChild>
+                <Button variant="ghost" size="icon">
+                  <X className="w-4 h-4" />
+                </Button>
+              </DialogClose>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 sm:space-y-6">
+            <div>
+              <h3 className="font-medium mb-2 text-sm sm:text-base">Default Settings</h3>
+              <pre className="font-mono text-xs sm:text-sm bg-gray-100 p-2 sm:p-4 rounded-lg whitespace-pre-wrap overflow-x-auto">
+                {previewContent.default}
+              </pre>
+            </div>
+            
+            <div>
+              <h3 className="font-medium mb-2 text-sm sm:text-base">Minimal Settings</h3>
+              <pre className="font-mono text-xs sm:text-sm bg-gray-100 p-2 sm:p-4 rounded-lg whitespace-pre-wrap overflow-x-auto">
+                {previewContent.minimal}
+              </pre>
+            </div>
+            
+            <div>
+              <h3 className="font-medium mb-2 text-sm sm:text-base">Wide Settings</h3>
+              <pre className="font-mono text-xs sm:text-sm bg-gray-100 p-2 sm:p-4 rounded-lg whitespace-pre-wrap overflow-x-auto">
+                {previewContent.wide}
+              </pre>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

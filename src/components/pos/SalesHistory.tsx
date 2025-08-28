@@ -12,12 +12,10 @@ import {
   Search, 
   Eye, 
   Printer, 
-  Calendar,
-  Filter,
-  DollarSign
+  Filter
 } from 'lucide-react';
 import { Sale } from '@/types/pos';
-import { formatPeso, formatPhilippineDateTime, generateReceiptText } from '@/utils/pos';
+import { formatPeso, formatPhilippineDateTime } from '@/utils/pos';
 
 export const SalesHistory = () => {
   const { sales, settings } = usePosData();
@@ -51,17 +49,17 @@ export const SalesHistory = () => {
           case 'today':
             return saleDate.toDateString() === now.toDateString();
           case 'yesterday':
-            const yesterday = new Date(now);
-            yesterday.setDate(yesterday.getDate() - 1);
-            return saleDate.toDateString() === yesterday.toDateString();
+            const yesterdayDate = new Date(now);
+            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+            return saleDate.toDateString() === yesterdayDate.toDateString();
           case 'week':
-            const weekAgo = new Date(now);
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            return saleDate >= weekAgo;
+            const weekAgoDate = new Date(now);
+            weekAgoDate.setDate(weekAgoDate.getDate() - 7);
+            return saleDate >= weekAgoDate;
           case 'month':
-            const monthAgo = new Date(now);
-            monthAgo.setMonth(monthAgo.getMonth() - 1);
-            return saleDate >= monthAgo;
+            const monthAgoDate = new Date(now);
+            monthAgoDate.setMonth(monthAgoDate.getMonth() - 1);
+            return saleDate >= monthAgoDate;
           default:
             return true;
         }
@@ -84,7 +82,37 @@ export const SalesHistory = () => {
   };
 
   const printReceipt = (sale: Sale) => {
-    const receiptText = generateReceiptText(sale, settings);
+    const receiptText = `
+
+${settings.businessName}
+${settings.address}
+TIN: ${settings.tin}
+BIR Permit: ${settings.birPermitNumber}
+Contact: ${settings.contactNumber}
+
+Receipt #: ${sale.receiptNumber}
+Date: ${formatPhilippineDateTime(new Date(sale.timestamp))}
+Cashier: ${sale.cashierName}
+
+===============================
+ITEMS
+===============================
+${sale.items.map(item => `${item.product.name}  ${item.quantity} x ${formatPeso(item.product.price)}`).join('\n')}
+
+-------------------------------
+Subtotal: ${formatPeso(sale.subtotal)}
+VAT (12%): ${formatPeso(sale.vatAmount)}
+===============================
+TOTAL: ${formatPeso(sale.total)}
+
+Payment: ${sale.paymentMethod}
+${(sale.paymentMethod === 'gcash' || sale.paymentMethod === 'maya') && sale.referenceNumber ? `Reference #: ${sale.referenceNumber}\n` : ''}Amount Received: ${formatPeso(sale.amountReceived)}
+Change: ${formatPeso(sale.change)}
+
+Salamat sa inyong pagbili!
+Thank you for your business!
+    `;
+
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(`
@@ -102,6 +130,7 @@ export const SalesHistory = () => {
           </body>
         </html>
       `);
+      printWindow.document.close();
     }
   };
 
@@ -335,6 +364,12 @@ export const SalesHistory = () => {
                   <span>Payment:</span>
                   <span className="capitalize">{selectedSale.paymentMethod}</span>
                 </div>
+                {(selectedSale.paymentMethod === 'gcash' || selectedSale.paymentMethod === 'maya') && selectedSale.referenceNumber && (
+                  <div className="flex justify-between">
+                    <span>Reference #:</span>
+                    <span className="font-mono">{selectedSale.referenceNumber}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span>Amount Received:</span>
                   <span>{formatPeso(selectedSale.amountReceived)}</span>

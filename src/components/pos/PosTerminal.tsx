@@ -23,9 +23,13 @@ import {
   Download,
   X
 } from 'lucide-react';
-import { CartItem, Product, PaymentMethod, Sale, HeldTransaction } from '@/types/pos';
+import { CartItem, Product, ProductVariant, PaymentMethod, Sale, HeldTransaction } from '@/types/pos';
 import { formatPeso, calculateSubtotal, calculateDiscount, calculateTotal, calculateVAT, generateReceiptText } from '@/utils/pos';
 import { toast } from '@/hooks/use-toast';
+import { EnhancedVariantSelectionModal } from './EnhancedVariantSelectionModal';
+import ReceiptConfirmationModal from './ReceiptConfirmationModal';
+import { GCashPaymentModal } from './GCashPaymentModal';
+import { CardPaymentModal } from './CardPaymentModal';
 
 export const PosTerminal = () => {
   const { products, searchProducts, recordSale, settings, categories, holdTransaction, retrieveHeldTransaction, heldTransactions } = usePosData();
@@ -52,6 +56,7 @@ export const PosTerminal = () => {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   const [showHeldTransactions, setShowHeldTransactions] = useState(false);
+  const [showVariantModal, setShowVariantModal] = useState(false);
 
   useEffect(() => {
     if (searchQuery) {
@@ -93,8 +98,12 @@ export const PosTerminal = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [cart]);
 
-  const addToCart = (product: Product, qty: number = 1) => {
-    if (product.stock < qty) {
+  const addToCart = (product: Product, qty: number = 1, variant?: ProductVariant) => {
+    const finalProduct = variant ? { ...product, name: `${product.name} - ${variant.size}`, price: variant.price } : product;
+    const finalPrice = variant ? variant.price : product.price;
+    
+    const availableStock = variant ? variant.stock : product.stock;
+    if (availableStock < qty) {
       toast({
         title: "Insufficient Stock",
         description: `Only ${product.stock} units available`,
@@ -103,7 +112,8 @@ export const PosTerminal = () => {
       return;
     }
 
-    const existingItem = cart.find(item => item.productId === product.id);
+    const existingItem = cart.find(item => item.productId === product.id && 
+      (!item.variant || (item.variant && variant && item.variant.id === variant.id)));
     
     if (existingItem) {
       const newQuantity = existingItem.quantity + qty;
@@ -117,16 +127,18 @@ export const PosTerminal = () => {
       }
       
       setCart(cart.map(item =>
-        item.productId === product.id
-          ? { ...item, quantity: newQuantity, subtotal: newQuantity * product.price }
+        item.productId === product.id && 
+        (!item.variant || (item.variant && variant && item.variant.id === variant.id))
+          ? { ...item, quantity: newQuantity, subtotal: newQuantity * finalPrice }
           : item
       ));
     } else {
       const newItem: CartItem = {
         productId: product.id,
-        product,
+        product: finalProduct,
         quantity: qty,
-        subtotal: qty * product.price,
+        subtotal: qty * finalPrice,
+        variant: variant,
       };
       setCart([...cart, newItem]);
     }
@@ -134,10 +146,11 @@ export const PosTerminal = () => {
     setSearchQuery('');
     setSelectedProduct(null);
     setQuantity(1);
+    setShowVariantModal(false);
     
     toast({
       title: "Added to Cart",
-      description: `${product.name} x${qty}`,
+      description: `${finalProduct.name} x${qty}`,
     });
   };
 
@@ -257,7 +270,20 @@ export const PosTerminal = () => {
     clearCart();
   };
 
-  const processSale = () => {
+const [showGCashModal, setShowGCashModal] = useState(false);
+const [showCardModal, setShowCardModal] = useState(false);
+const [gCashAmount, setGCashAmount] = useState(0);
+
+const processSale = () => {
+    if (paymentMethod === 'gcash') {
+        setGCashAmount(total);
+        setShowGCashModal(true);
+        return;
+    }
+    if (paymentMethod === 'card') {
+        setShowCardModal(true);
+        return;
+    }
     if (currentUser?.role !== 'cashier') {
       toast({
         title: "Access Denied",
@@ -299,9 +325,9 @@ export const PosTerminal = () => {
       cashierName: currentUser?.fullName || '',
     });
 
-    // Print receipt
-    const receiptText = generateReceiptText(sale, settings);
-    printReceipt(receiptText);
+    // Store the completed sale and show receipt modal instead of printing immediately
+    setCompletedSale(sale);
+    setShowReceiptModal(true);
 
     toast({
       title: "Sale Completed",
@@ -311,7 +337,7 @@ export const PosTerminal = () => {
     clearCart();
   };
 
-  const printReceipt = (receiptText: string) => {
+const printReceipt = (receiptText: string) => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(`
@@ -330,6 +356,82 @@ export const PosTerminal = () => {
         </html>
       `);
     }
+  };
+
+const handleGCashPayment = (referenceNumber: string) => {
+    if (currentUser?.role !== 'cashier') {
+      toast({
+        title: "Access Denied",
+        description: "Only cashier users can process sales",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const sale = recordSale({
+      items: cart,
+      subtotal,
+      discount: discountAmount,
+      discountType,
+      vatAmount,
+      total,
+      paymentMethod: 'gcash',
+      amountReceived: total,
+      change: 0,
+      cashierId: currentUser?.id || '',
+      cashierName: currentUser?.fullName || '',
+      referenceNumber: referenceNumber,
+    });
+
+    // Store the completed sale and show receipt modal instead of printing immediately
+    setCompletedSale(sale);
+    setShowReceiptModal(true);
+
+    toast({
+      title: "GCash Payment Confirmed",
+      description: `Reference Number: ${referenceNumber}`,
+    });
+
+    clearCart();
+    setShowGCashModal(false);
+  };
+
+const handleCardPayment = (referenceNumber: string) => {
+    if (currentUser?.role !== 'cashier') {
+      toast({
+        title: "Access Denied",
+        description: "Only cashier users can process sales",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const sale = recordSale({
+      items: cart,
+      subtotal,
+      discount: discountAmount,
+      discountType,
+      vatAmount,
+      total,
+      paymentMethod: 'card',
+      amountReceived: total,
+      change: 0,
+      cashierId: currentUser?.id || '',
+      cashierName: currentUser?.fullName || '',
+      referenceNumber: referenceNumber,
+    });
+
+    // Store the completed sale and show receipt modal instead of printing immediately
+    setCompletedSale(sale);
+    setShowReceiptModal(true);
+
+    toast({
+      title: "Card Payment Confirmed",
+      description: `Reference Number: ${referenceNumber}`,
+    });
+
+    clearCart();
+    setShowCardModal(false);
   };
 
   return (
@@ -422,54 +524,115 @@ export const PosTerminal = () => {
 
               {/* All Products Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
-                {(searchQuery ? searchResults : products)
-                  .filter(product => !selectedCategory || product.category === selectedCategory)
-                  .map((product) => (
-                  <div
-                    key={product.id}
-                    className={`p-3 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                      selectedProduct?.id === product.id
-                        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
-                        : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
-                    } ${product.stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    onClick={() => product.stock > 0 && setSelectedProduct(product)}
-                  >
-                    <div className="space-y-2">
-                      <div className="aspect-square bg-[hsl(var(--muted))] rounded flex items-center justify-center">
-                        <span className="text-2xl font-bold text-[hsl(var(--muted-foreground))]">
-                          {product.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-sm truncate">{product.name}</h4>
-                        <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                          {product.category}
-                        </p>
-                        <p className="font-bold text-lg">{formatPeso(product.price)}</p>
-                        <Badge 
-                          variant={product.stock === 0 ? "destructive" : product.stock <= 10 ? "warning" : "secondary"}
-                          className="text-xs"
-                        >
-                          {product.stock === 0 ? 'Out of Stock' : `${product.stock} left`}
-                        </Badge>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (product.stock > 0) {
-                            addToCart(product, 1);
-                          }
-                        }}
-                        disabled={product.stock === 0}
+                {searchQuery && searchResults.length > 0 ? (
+                  searchResults
+                    .filter(product => !selectedCategory || product.category === selectedCategory)
+                    .map((product) => (
+                      <div
+                        key={`search-${product.id}`}
+                        className={`p-3 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
+                          selectedProduct?.id === product.id
+                            ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
+                            : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
+                        } ${product.stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={() => product.stock > 0 && setSelectedProduct(product)}
                       >
-                        Add to Cart
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                        <div className="space-y-2">
+                          <div className="aspect-square bg-[hsl(var(--muted))] rounded flex items-center justify-center">
+                            <span className="text-2xl font-bold text-[hsl(var(--muted-foreground))]">
+                              {product.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-sm truncate">{product.name}</h4>
+                            <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                              {product.category}
+                            </p>
+                            <p className="font-bold text-lg">{formatPeso(product.price)}</p>
+                            <Badge 
+                              variant={product.stock === 0 ? "destructive" : product.stock <= 10 ? "warning" : "secondary"}
+                              className="text-xs"
+                            >
+                              {product.stock === 0 ? 'Out of Stock' : `${product.stock} left`}
+                            </Badge>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (product.stock > 0) {
+                                if (product.variants && product.variants.length > 0) {
+                                  setSelectedProduct(product);
+                                  setShowVariantModal(true);
+                                } else {
+                                  addToCart(product, 1);
+                                }
+                              }
+                            }}
+                            disabled={product.stock === 0}
+                          >
+                            Add to Cart
+                          </Button>
+                        </div>
+                      </div>
+                    )) 
+                ) : (
+                  products
+                    .filter(product => !selectedCategory || product.category === selectedCategory)
+                    .map((product) => (
+                      <div
+                        key={`product-${product.id}`}
+                        className={`p-3 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
+                          selectedProduct?.id === product.id
+                            ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
+                            : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
+                        } ${product.stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={() => product.stock > 0 && setSelectedProduct(product)}
+                      >
+                        <div className="space-y-2">
+                          <div className="aspect-square bg-[hsl(var(--muted))] rounded flex items-center justify-center">
+                            <span className="text-2xl font-bold text-[hsl(var(--muted-foreground))]">
+                              {product.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-sm truncate">{product.name}</h4>
+                            <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                              {product.category}
+                            </p>
+                            <p className="font-bold text-lg">{formatPeso(product.price)}</p>
+                            <Badge 
+                              variant={product.stock === 0 ? "destructive" : product.stock <= 10 ? "warning" : "secondary"}
+                              className="text-xs"
+                            >
+                              {product.stock === 0 ? 'Out of Stock' : `${product.stock} left`}
+                            </Badge>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (product.stock > 0) {
+                                if (product.variants && product.variants.length > 0) {
+                                  setSelectedProduct(product);
+                                  setShowVariantModal(true);
+                                } else {
+                                  addToCart(product, 1);
+                                }
+                              }
+                            }}
+                            disabled={product.stock === 0}
+                          >
+                            Add to Cart
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                )}
               </div>
 
               {/* Search Results List View (for filtered results) */}
@@ -566,6 +729,11 @@ export const PosTerminal = () => {
                         <div className="text-right">
                           <p className="text-sm font-medium">{formatPeso(item.subtotal)}</p>
                         </div>
+                        {item.variantName && (
+                          <Badge variant="outline" className="text-xs ml-2">
+                            {item.variantName}
+                          </Badge>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -788,6 +956,18 @@ export const PosTerminal = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Receipt Confirmation Modal */}
+        <ReceiptConfirmationModal
+          isOpen={showReceiptModal}
+          onClose={() => setShowReceiptModal(false)}
+          onPrint={() => {
+            if (completedSale) {
+              const receiptText = generateReceiptText(completedSale, settings);
+              printReceipt(receiptText);
+            }
+          }}
+        />
+
         {/* Held Transactions Dialog */}
         <Dialog open={showHeldTransactions} onOpenChange={setShowHeldTransactions}>
           <DialogContent className="sm:max-w-[425px]">
@@ -831,6 +1011,34 @@ export const PosTerminal = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Variant Selection Modal */}
+        <EnhancedVariantSelectionModal
+          isOpen={showVariantModal}
+          onClose={() => setShowVariantModal(false)}
+          product={selectedProduct}
+          onAddToCart={(product, variant, quantity) => {
+            addToCart(product, quantity, variant);
+          }}
+        />
+
+        {/* GCash Payment Modal */}
+        <GCashPaymentModal
+          isOpen={showGCashModal}
+          onClose={() => setShowGCashModal(false)}
+          amount={gCashAmount}
+          onConfirm={handleGCashPayment}
+          settings={settings}
+        />
+        
+        {/* Card Payment Modal */}
+        <CardPaymentModal
+          isOpen={showCardModal}
+          onClose={() => setShowCardModal(false)}
+          amount={total}
+          onConfirm={handleCardPayment}
+          settings={settings}
+        />
       </div>
     </div>
   );

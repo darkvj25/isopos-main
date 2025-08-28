@@ -31,6 +31,7 @@ export const InventoryManagement = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [adjustmentType, setAdjustmentType] = useState<'add' | 'remove'>('add');
   const [quantity, setQuantity] = useState(1);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState<number>(0);
   const [reason, setReason] = useState('');
 
   const filteredProducts = searchQuery ? searchProducts(searchQuery) : products;
@@ -51,7 +52,11 @@ export const InventoryManagement = () => {
       return;
     }
 
-    adjustStock(selectedProduct.id, quantity, adjustmentType, reason, currentUser.id);
+    const variantId = selectedProduct.variants && selectedProduct.variants.length > 0 
+      ? selectedProduct.variants[selectedVariantIndex].id 
+      : undefined;
+
+    adjustStock(selectedProduct.id, quantity, adjustmentType, reason, currentUser.id, variantId);
     
     toast({
       title: "Stock Adjusted",
@@ -68,6 +73,7 @@ export const InventoryManagement = () => {
     setSelectedProduct(product);
     setAdjustmentType(type);
     setShowAdjustDialog(true);
+    setSelectedVariantIndex(0); // Reset variant index when opening dialog
   };
 
   const getStockStatus = (product: Product) => {
@@ -190,7 +196,7 @@ export const InventoryManagement = () => {
               <TableRow>
                 <TableHead>Product</TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead>Price</TableHead>
+                <TableHead>Variant Prices</TableHead>
                 <TableHead>Stock</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -198,7 +204,14 @@ export const InventoryManagement = () => {
             </TableHeader>
             <TableBody>
               {filteredProducts.map((product) => {
-                const stockStatus = getStockStatus(product);
+                // Calculate total stock for products with variants
+                const totalStock = product.variants && product.variants.length > 0 
+                  ? product.variants.reduce((sum, variant) => sum + (variant.stock || 0), 0)
+                  : product.stock;
+                
+                // Create a temporary product object with calculated stock for status checks
+                const productWithCalculatedStock = { ...product, stock: totalStock };
+                const stockStatus = getStockStatus(productWithCalculatedStock);
                 const StatusIcon = stockStatus.icon;
                 
                 return (
@@ -211,12 +224,22 @@ export const InventoryManagement = () => {
                             {product.barcode}
                           </div>
                         )}
+                        {product.variants && product.variants.length > 0 && (
+                          <div className="text-xs text-[hsl(var(--muted-foreground))]">
+                            {product.variants.length} variant{product.variants.length > 1 ? 's' : ''}
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>{product.category}</TableCell>
                     <TableCell>{formatPeso(product.price)}</TableCell>
                     <TableCell>
-                      <span className="font-medium">{product.stock}</span>
+                      <span className="font-medium">{totalStock}</span>
+                      {product.variants && product.variants.length > 0 && (
+                        <div className="text-xs text-[hsl(var(--muted-foreground))]">
+                          from {product.variants.length} variant{product.variants.length > 1 ? 's' : ''}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge 
@@ -242,7 +265,7 @@ export const InventoryManagement = () => {
                           variant="outline"
                           onClick={() => openAdjustDialog(product, 'remove')}
                           className="text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive))]/10"
-                          disabled={product.stock === 0}
+                          disabled={totalStock === 0}
                         >
                           <Minus className="w-4 h-4" />
                         </Button>
@@ -274,7 +297,11 @@ export const InventoryManagement = () => {
           <div className="space-y-4">
             <div className="p-3 bg-[hsl(var(--muted))] rounded-lg">
               <p className="text-sm text-[hsl(var(--muted-foreground))]">Current Stock</p>
-              <p className="text-2xl font-bold">{selectedProduct?.stock || 0}</p>
+              <p className="text-2xl font-bold">
+                {selectedProduct?.variants 
+                  ? selectedProduct.variants.reduce((sum, variant) => sum + variant.stock, 0) 
+                  : 0}
+              </p>
             </div>
             
             <div>
@@ -288,6 +315,24 @@ export const InventoryManagement = () => {
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
               />
             </div>
+            
+            {selectedProduct?.variants && selectedProduct.variants.length > 0 && (
+              <div>
+                <Label htmlFor="variant">Select Variant</Label>
+                <Select value={selectedVariantIndex.toString()} onValueChange={(value) => setSelectedVariantIndex(parseInt(value))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select variant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectedProduct.variants.map((variant, index) => (
+                      <SelectItem key={variant.id} value={index.toString()}>
+                        {variant.size} - {variant.stock} in stock
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             
             <div>
               <Label htmlFor="reason">Reason</Label>

@@ -6,7 +6,16 @@ export interface User {
   password: string;
   role: 'admin' | 'cashier';
   fullName: string;
-  createdAt: Date;
+  createdAt: string; // changed from Date to string
+  isActive: boolean;
+}
+
+export interface ProductVariant {
+  id: string;
+  size: string;
+  price: number;
+  stock: number;
+  barcode?: string;
   isActive: boolean;
 }
 
@@ -19,6 +28,8 @@ export interface Product {
   barcode?: string;
   description?: string;
   cost?: number;
+  hasVariants: boolean;
+  variants?: ProductVariant[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +39,8 @@ export interface CartItem {
   product: Product;
   quantity: number;
   subtotal: number;
+  variant?: ProductVariant;
+  variantName?: string;
 }
 
 export interface Sale {
@@ -46,6 +59,7 @@ export interface Sale {
   cashierName: string;
   timestamp: Date;
   customer?: string;
+  referenceNumber?: string;
 }
 
 export interface DailySales {
@@ -69,6 +83,16 @@ export interface BusinessSettings {
   vatRate: number;
   gcashQR?: string;
   mayaQR?: string;
+  
+  // New receipt settings
+  receiptHeader?: string; // Custom header for receipts
+  receiptFontSize?: number; // Font size for receipt text
+  receiptWidth?: number; // Width of the receipt
+  showBusinessName: boolean; // Toggle to show/hide business name
+  showAddress: boolean; // Toggle to show/hide address
+  showTIN: boolean; // Toggle to show/hide TIN
+  showBIRPermit: boolean; // Toggle to show/hide BIR Permit
+  showContactNumber: boolean; // Toggle to show/hide contact number
 }
 
 export interface StockAdjustment {

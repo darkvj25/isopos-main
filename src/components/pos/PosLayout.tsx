@@ -14,7 +14,8 @@ import {
   LogOut,
   User,
   Clock,
-  Menu
+  Menu,
+  DollarSign
 } from 'lucide-react';
 import { formatPhilippineDateTime } from '@/utils/pos';
 
@@ -50,7 +51,7 @@ const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => {
             <ShoppingCart className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold">BENZ POS</h1>
+            <h1 className="text-lg font-bold">BALANDZXC POS</h1>
             <p className="text-sm text-[hsl(var(--pos-sidebar-foreground))]/70">ISOGOODS</p>
           </div>
         </div>

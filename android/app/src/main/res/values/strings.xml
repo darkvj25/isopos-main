@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BENZPOS</string>
+    <string name="title_activity_main">BENZPOS</string>
+    <string name="package_name">com.darkvj25.posreact</string>
+    <string name="custom_url_scheme">com.darkvj25.posreact</string>
+</resources>

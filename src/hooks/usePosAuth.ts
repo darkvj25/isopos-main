@@ -9,7 +9,7 @@ const DEFAULT_USERS: User[] = [
     password: 'admin123',
     role: 'admin',
     fullName: 'Store Administrator',
-    createdAt: new Date(),
+    createdAt: new Date().toISOString(),
     isActive: true,
   },
   {
@@ -18,7 +18,7 @@ const DEFAULT_USERS: User[] = [
     password: 'cashier123',
     role: 'cashier',
     fullName: 'Store Cashier',
-    createdAt: new Date(),
+    createdAt: new Date().toISOString(),
     isActive: true,
   },
 ];
@@ -44,8 +44,19 @@ export const usePosAuth = (): UsePosAuthReturn => {
 
   useEffect(() => {
     // Initialize users if not exists
-    const savedUsers = getFromLocalStorage('pos_users', DEFAULT_USERS);
-    setUsers(savedUsers);
+    const storedUsers = localStorage.getItem('pos_users');
+    if (!storedUsers) {
+      localStorage.setItem('pos_users', JSON.stringify(DEFAULT_USERS));
+      setUsers(DEFAULT_USERS);
+    } else {
+      const savedUsers = getFromLocalStorage('pos_users', []);
+      // Convert createdAt strings to Date objects
+      const parsedUsers = savedUsers.map((user: any) => ({
+        ...user,
+        createdAt: new Date(user.createdAt),
+      }));
+      setUsers(parsedUsers);
+    }
     
     // Check for existing session
     const savedSession = getFromLocalStorage('pos_current_user', null);
@@ -80,8 +91,8 @@ export const usePosAuth = (): UsePosAuthReturn => {
   const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem('pos_current_user');
-    // Force navigation to home/login
-    window.location.href = '/pos-react/';
+    // Use proper navigation for mobile app
+    window.location.href = '/';
   };
 
   const addUser = (userData: Omit<User, 'id' | 'createdAt'>): User => {

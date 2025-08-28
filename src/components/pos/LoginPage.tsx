@@ -48,7 +48,7 @@ export const LoginPage = () => {
             </div>
             <div>
               <CardTitle className="text-2xl font-bold text-[hsl(var(--foreground))]">
-                Philippines POS
+                BALANDZXC POS
               </CardTitle>
               <CardDescription className="text-[hsl(var(--muted-foreground))]">
                 Point of Sale System
@@ -124,7 +124,7 @@ export const LoginPage = () => {
 
         <div className="mt-6 text-center">
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
-            Made for Philippine Businesses
+            balandoy18@gmail.com
           </p>
         </div>
       </div>
